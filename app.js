@@ -24,20 +24,106 @@ document.addEventListener('DOMContentLoaded', () => {
 async function initApp() {
     renderLoadingState();
     if (API_CONFIG.ENABLED && API_CONFIG.KEY !== 'YOUR_RAPIDAPI_KEY') {
-        let data;
+        let matchData;
         if (currentView === 'live') {
-            data = await fetchLiveScores();
+            matchData = await fetchLiveScores();
         } else {
-            data = await fetchLeagueFixtures(currentView);
+            matchData = await fetchLeagueFixtures(currentView);
+            await loadLeagueStandings(currentView);
         }
 
-        if (data && data.length > 0) {
-            renderMatches(data);
-        } else {
+        if (matchData && matchData.length > 0) {
+            renderMatches(matchData);
+        } else if (currentView === 'live') {
             initSimulation();
         }
     } else {
         initSimulation();
+    }
+}
+
+async function fetchLeagueFixtures(leagueId) {
+    try {
+        const year = new Date().getFullYear();
+        const response = await fetch(`${API_CONFIG.BASE_URL}/fixtures?league=${leagueId}&season=${year}&next=10`, {
+            method: "GET",
+            headers: {
+                "x-rapidapi-host": API_CONFIG.HOST,
+                "x-rapidapi-key": API_CONFIG.KEY
+            }
+        });
+        const data = await response.json();
+        return data.response;
+    } catch (error) {
+        console.error('League Fetch Error:', error);
+        return null;
+    }
+}
+
+async function loadLeagueStandings(leagueId) {
+    try {
+        const year = new Date().getFullYear();
+        const response = await fetch(`${API_CONFIG.BASE_URL}/standings?league=${leagueId}&season=${year}`, {
+            method: "GET",
+            headers: {
+                "x-rapidapi-host": API_CONFIG.HOST,
+                "x-rapidapi-key": API_CONFIG.KEY
+            }
+        });
+        const data = await response.json();
+        if (data.response && data.response[0]) {
+            renderStandings(data.response[0].league.standings[0]);
+        }
+    } catch (error) {
+        console.error('Standings Fetch Error:', error);
+    }
+}
+
+function renderStandings(standings) {
+    const sidebarRight = document.querySelector('.sidebar-right');
+    if (!sidebarRight) return;
+
+    let html = `
+        <div class="info-card standings-card">
+            <h3 class="section-title">Puan Durumu</h3>
+            <table style="width: 100%; font-size: 12px; border-collapse: collapse; margin-top: 10px;">
+                <thead>
+                    <tr style="color: var(--text-secondary); text-align: left; border-bottom: 1px solid var(--border-color);">
+                        <th style="padding: 8px 4px;">#</th>
+                        <th style="padding: 8px 4px;">Takım</th>
+                        <th style="padding: 8px 4px; text-align: center;">O</th>
+                        <th style="padding: 8px 4px; text-align: center;">P</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    standings.slice(0, 10).forEach(team => {
+        html += `
+            <tr style="border-bottom: 1px solid var(--border-color); cursor: pointer;">
+                <td style="padding: 8px 4px;">${team.rank}</td>
+                <td style="padding: 8px 4px; display: flex; align-items: center; gap: 8px;">
+                    <img src="${team.team.logo}" style="width: 16px; height: 16px;">
+                    <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px;">${team.team.name}</span>
+                </td>
+                <td style="padding: 8px 4px; text-align: center;">${team.all.played}</td>
+                <td style="padding: 8px 4px; text-align: center; font-weight: 700; color: var(--accent-blue);">${team.points}</td>
+            </tr>
+        `;
+    });
+
+    html += `
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    // Replace the first info card or prepend
+    const existingStandings = sidebarRight.querySelector('.standings-card');
+    if (existingStandings) {
+        existingStandings.outerHTML = html;
+    } else {
+        sidebarRight.insertAdjacentHTML('afterbegin', html);
     }
 }
 
@@ -177,6 +263,20 @@ function highlightScore(element) {
 }
 
 function setupEventListeners() {
+    // League Switching
+    document.querySelectorAll('.league-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const leagueName = item.querySelector('span').textContent;
+            if (leagueName === 'Süper Lig') currentView = LEAGUES.TURKEY;
+            else if (leagueName === 'Premier League') currentView = LEAGUES.PREMIER_LEAGUE;
+            else if (leagueName === 'La Liga') currentView = LEAGUES.LA_LIGA;
+            else if (leagueName === 'Serie A') currentView = LEAGUES.SERIE_A;
+            else if (leagueName === 'Popüler' || leagueName === 'Canlı') currentView = 'live';
+
+            initApp();
+        });
+    });
+
     // Search animation
     const searchBar = document.querySelector('.search-bar');
     const searchInput = searchBar?.querySelector('input');
