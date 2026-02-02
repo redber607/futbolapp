@@ -6,22 +6,37 @@ const API_CONFIG = {
     BASE_URL: 'https://v3.football.api-sports.io'
 };
 
+const LEAGUES = {
+    TURKEY: 203,
+    PREMIER_LEAGUE: 39,
+    LA_LIGA: 140,
+    SERIE_A: 135,
+    CHAMPIONS_LEAGUE: 2
+};
+
+let currentView = 'live'; // 'live' or league ID
+
 document.addEventListener('DOMContentLoaded', () => {
     initApp();
     setupEventListeners();
 });
 
 async function initApp() {
+    renderLoadingState();
     if (API_CONFIG.ENABLED && API_CONFIG.KEY !== 'YOUR_RAPIDAPI_KEY') {
-        renderLoadingState();
-        const liveData = await fetchLiveScores();
-        if (liveData) {
-            renderMatches(liveData);
+        let data;
+        if (currentView === 'live') {
+            data = await fetchLiveScores();
         } else {
-            initSimulation(); // Fallback
+            data = await fetchLeagueFixtures(currentView);
+        }
+
+        if (data && data.length > 0) {
+            renderMatches(data);
+        } else {
+            initSimulation();
         }
     } else {
-        console.warn('API Key not set. Running in Simulation Mode.');
         initSimulation();
     }
 }
