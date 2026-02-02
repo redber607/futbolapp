@@ -1,9 +1,9 @@
 // FutbolApp - Main Logic
 const API_CONFIG = {
     ENABLED: true,
-    KEY: '931b606865msh9d5fb32aa60bc29p1927a8jsne955cbe8d81c',
-    HOST: 'v3.football.api-sports.io',
-    BASE_URL: 'https://v3.football.api-sports.io'
+    KEY: '931b606865msh9d5fb32aa60bc29p1927a8jsne955cbe8d81c'.trim(),
+    HOSTS: ['api-football-v1.p.rapidapi.com', 'v3.football.api-sports.io'],
+    ENDPOINTS: ['https://api-football-v1.p.rapidapi.com/v3', 'https://v3.football.api-sports.io']
 };
 
 const LEAGUES = {
@@ -23,8 +23,23 @@ document.addEventListener('DOMContentLoaded', () => {
     loadSuperLigTeams();
 });
 
+function logDiag(msg, type = 'info') {
+    const diagLogs = document.getElementById('diag-logs');
+    const diagConsole = document.getElementById('diagnostic-console');
+    if (!diagLogs) return;
+
+    diagConsole.style.display = 'block';
+    const log = document.createElement('div');
+    log.style.color = type === 'error' ? '#ff3333' : (type === 'warn' ? '#ffcc00' : '#00f2ff');
+    log.textContent = `> ${msg}`;
+    diagLogs.appendChild(log);
+    if (diagLogs.childNodes.length > 5) diagLogs.removeChild(diagLogs.firstChild);
+}
+
 async function initApp() {
     renderLoadingState();
+    logDiag(`Görünüm değiştirildi: ${currentView}`);
+
     if (API_CONFIG.ENABLED && API_CONFIG.KEY !== 'YOUR_RAPIDAPI_KEY') {
         let matchData;
         if (currentView === 'live') {
@@ -39,52 +54,104 @@ async function initApp() {
 
         if (matchData && matchData.length > 0) {
             renderMatches(matchData);
-        } else if (currentView === 'live') {
-            initSimulation();
         } else {
-            renderEmptyState();
+            if (currentView === 'live') {
+                initSimulation();
+            } else {
+                renderEmptyState();
+            }
         }
     } else {
         initSimulation();
     }
 }
 
-async function fetchLeagueFixtures(leagueId, filter = 'upcoming') {
+async function fetchWithRetry(path) {
+    logDiag(`İstek atılıyor: ${path.split('?')[0]}`);
+
+    // Try RapidAPI first
     try {
-        const year = new Date().getFullYear() - 1; // 2024-2025 season
-        const type = filter === 'upcoming' ? 'next=15' : 'last=15';
-        const response = await fetch(`${API_CONFIG.BASE_URL}/fixtures?league=${leagueId}&season=${year}&${type}`, {
+        const response = await fetch(`${API_CONFIG.ENDPOINTS[0]}${path}`, {
             method: "GET",
             headers: {
-                "x-rapidapi-host": API_CONFIG.HOST,
+                "x-rapidapi-host": API_CONFIG.HOSTS[0],
                 "x-rapidapi-key": API_CONFIG.KEY
             }
         });
-        const data = await response.json();
-        return data.response;
+        if (response.ok) {
+            logDiag(`RapidAPI Başarılı`);
+            return await response.json();
+        }
+        logDiag(`RapidAPI Hata: ${response.status}`, 'warn');
+    } catch (e) {
+        logDiag(`RapidAPI Fetch Error`, 'error');
+    }
+
+    // Try API-Sports as fallback
+    try {
+        const response = await fetch(`${API_CONFIG.ENDPOINTS[1]}${path}`, {
+            method: "GET",
+            headers: {
+                "x-apisports-key": API_CONFIG.KEY
+            }
+        });
+        if (response.ok) {
+            logDiag(`API-Sports Başarılı`);
+            return await response.json();
+        }
+        logDiag(`API-Sports Hata: ${response.status}`, 'warn');
+    } catch (e) {
+        logDiag(`API-Sports Fetch Error`, 'error');
+    }
+    return null;
+}
+
+async function fetchLeagueFixtures(leagueId, filter = 'upcoming') {
+    try {
+        const currentYear = new Date().getFullYear();
+        const month = new Date().getMonth();
+        let season = month < 7 ? currentYear - 1 : currentYear;
+
+        const tryLoad = async (targetSeason) => {
+            const type = filter === 'upcoming' ? 'next=15' : 'last=15';
+            const data = await fetchWithRetry(`/fixtures?league=${leagueId}&season=${targetSeason}&${type}`);
+            return (data && data.response && data.response.length > 0) ? data.response : null;
+        };
+
+        let result = await tryLoad(season);
+        if (!result) result = await tryLoad(season - 1);
+        if (!result && season > 2023) result = await tryLoad(2024);
+
+        return result;
     } catch (error) {
-        console.error('League Fetch Error:', error);
         return null;
     }
 }
 
 async function loadLeagueStandings(leagueId) {
+    const container = document.querySelector('.standings-container');
+    if (!container) return;
+
     try {
-        const year = new Date().getFullYear() - 1;
-        const response = await fetch(`${API_CONFIG.BASE_URL}/standings?league=${leagueId}&season=${year}`, {
-            method: "GET",
-            headers: {
-                "x-rapidapi-host": API_CONFIG.HOST,
-                "x-rapidapi-key": API_CONFIG.KEY
+        const currentYear = new Date().getFullYear();
+        const month = new Date().getMonth();
+        let season = month < 7 ? currentYear - 1 : currentYear;
+
+        const tryLoadStandings = async (targetSeason) => {
+            const data = await fetchWithRetry(`/standings?league=${leagueId}&season=${targetSeason}`);
+            if (data && data.response && data.response[0]) {
+                document.getElementById('season-label').textContent = `Sezon ${targetSeason}/${(targetSeason + 1).toString().slice(-2)}`;
+                renderStandings(data.response[0].league.standings[0]);
+                return true;
             }
-        });
-        const data = await response.json();
-        if (data.response && data.response[0]) {
-            renderStandings(data.response[0].league.standings[0]);
-        }
-    } catch (error) {
-        console.error('Standings Fetch Error:', error);
-    }
+            return false;
+        };
+
+        let success = await tryLoadStandings(season);
+        if (!success) success = await tryLoadStandings(season - 1);
+        if (!success && season > 2023) success = await tryLoadStandings(2024);
+
+    } catch (error) { }
 }
 
 function renderStandings(standings) {
@@ -124,57 +191,23 @@ function renderStandings(standings) {
         `;
     });
 
-    html += `
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    `;
-
+    html += `</tbody></table></div></div>`;
     container.innerHTML = html;
 }
 
-/**
- * Fetches live scores from API-Football
- */
 async function fetchLiveScores() {
     try {
-        console.log('Fetching live scores...');
-        const response = await fetch(`${API_CONFIG.BASE_URL}/fixtures?live=all`, {
-            method: "GET",
-            headers: {
-                "x-rapidapi-host": API_CONFIG.HOST,
-                "x-rapidapi-key": API_CONFIG.KEY
-            }
-        });
-
-        if (!response.ok) throw new Error(`API Error: ${response.status}`);
-
-        const data = await response.json();
-
-        if (!data.response || data.response.length === 0) {
-            console.warn('No live matches found from API. Falling back to simulation.');
-            initSimulation();
-            return null;
-        }
-
-        return data.response;
+        const data = await fetchWithRetry('/fixtures?live=all');
+        return (data && data.response && data.response.length > 0) ? data.response : null;
     } catch (error) {
-        console.error('API Fetch Error:', error.message);
-        console.log('Falling back to simulation mode...');
-        initSimulation();
         return null;
     }
 }
 
-/**
- * Maps API data to HTML Cards
- */
 function renderMatches(fixtures) {
     const feed = document.querySelector('.match-feed');
     feed.innerHTML = '';
 
-    // Render Filters (Upcoming / Finished)
     if (currentView !== 'live') {
         renderMatchFilter(feed);
     } else {
@@ -197,8 +230,8 @@ function renderMatches(fixtures) {
         card.className = 'match-card reveal';
         card.style.animationDelay = `${index * 0.05}s`;
         card.innerHTML = `
-            <div class="match-time ${item.fixture.status.short === '1H' || item.fixture.status.short === '2H' ? 'live' : ''}">
-                ${item.fixture.status.short === 'LIVE' || item.fixture.status.elapsed ? `<div class="live-indicator"></div><span>${item.fixture.status.elapsed}'</span>` : `<span>${item.fixture.status.short}</span>`}
+            <div class="match-time ${['1H', '2H', 'HT', 'ET', 'P', 'LIVE'].includes(item.fixture.status.short) ? 'live' : ''}">
+                ${item.fixture.status.elapsed ? `<div class="live-indicator"></div><span>${item.fixture.status.elapsed}'</span>` : `<span>${item.fixture.status.short}</span>`}
             </div>
             <div class="match-teams">
                 <div class="team">
@@ -218,7 +251,6 @@ function renderMatches(fixtures) {
         feed.appendChild(card);
     });
 
-    // Re-attach listeners to new dynamic cards
     setupEventListeners();
 }
 
@@ -251,9 +283,7 @@ function renderMatchFilter(container) {
 function renderEmptyState() {
     const feed = document.querySelector('.match-feed');
     feed.innerHTML = '';
-
     if (currentView !== 'live') renderMatchFilter(feed);
-
     const empty = document.createElement('div');
     empty.style.padding = '60px 40px';
     empty.style.textAlign = 'center';
@@ -263,7 +293,7 @@ function renderEmptyState() {
         <p>Bu kategoride şu an için maç bulunamadı.</p>
     `;
     feed.appendChild(empty);
-    lucide.createIcons();
+    if (window.lucide) lucide.createIcons();
 }
 
 function renderLoadingState() {
@@ -276,103 +306,88 @@ function renderLoadingState() {
     `;
 }
 
-/**
- * Original Simulation Logic (Fallback)
- */
 function initSimulation() {
-    initLiveUpdates();
-}
-
-function initLiveUpdates() {
-    const liveMatchTime = document.querySelector('.match-time.live span');
-    let minute = 74;
-
-    setInterval(() => {
-        // Increment minute
-        if (Math.random() > 0.8) {
-            minute++;
-            if (minute > 90) minute = 90;
-            if (liveMatchTime) liveMatchTime.textContent = minute + "'";
-        }
-
-        // Random goal simulation
-        if (Math.random() > 0.98) {
-            updateScore('match-1');
-        }
-    }, 5000);
-}
-
-function updateScore(matchId) {
-    const matchCard = document.getElementById(matchId);
-    if (!matchCard) return;
-
-    const scores = matchCard.querySelectorAll('.score-row');
-    const isHomeGoal = Math.random() > 0.5;
-
-    if (isHomeGoal) {
-        let current = parseInt(scores[0].textContent);
-        scores[0].textContent = current + 1;
-        highlightScore(scores[0]);
-    } else {
-        let current = parseInt(scores[1].textContent);
-        scores[1].textContent = current + 1;
-        highlightScore(scores[1]);
-    }
-}
-
-function highlightScore(element) {
-    element.style.color = 'var(--accent-green)';
-    element.style.transition = 'color 0.3s';
-
-    setTimeout(() => {
-        element.style.color = 'var(--text-primary)';
-    }, 3000);
+    const feed = document.querySelector('.match-feed');
+    feed.innerHTML = `
+        <div style="padding: 40px; text-align: center; color: var(--text-secondary);">
+            <i data-lucide="shield-alert" style="width: 32px; height: 32px; margin-bottom: 12px; opacity: 0.5;"></i>
+            <p style="font-size: 14px; font-weight: 600;">Simülasyon Modu Aktif</p>
+            <p style="font-size: 11px; margin-top: 4px;">Gerçek zamanlı verilere ulaşılamadı. Örnek maçlar gösteriliyor.</p>
+        </div>
+        <div class="match-card reveal" style="opacity: 0.7;">
+            <div class="match-time live">
+                <div class="live-indicator"></div><span>74'</span>
+            </div>
+            <div class="match-teams">
+                <div class="team">
+                    <img src="https://media.api-sports.io/football/teams/564.png" class="team-logo">
+                    <span style="font-weight: 800;">Galatasaray</span>
+                </div>
+                <div class="team">
+                    <img src="https://media.api-sports.io/football/teams/567.png" class="team-logo">
+                    <span>Beşiktaş</span>
+                </div>
+            </div>
+            <div class="match-score">
+                <div class="score-row">2</div>
+                <div class="score-row">1</div>
+            </div>
+        </div>
+    `;
+    if (window.lucide) lucide.createIcons();
 }
 
 async function loadSuperLigTeams() {
-    if (!API_CONFIG.ENABLED || API_CONFIG.KEY === 'YOUR_RAPIDAPI_KEY') {
-        const teamList = document.getElementById('super-lig-teams');
-        if (teamList) teamList.innerHTML = '<div style="padding: 10px; color: var(--text-secondary); font-size: 11px;">Simülasyon Modu: Takımlar yüklenemedi.</div>';
-        return;
-    }
+    logDiag('Süper Lig takımları yükleniyor...');
+    const teamList = document.getElementById('super-lig-teams');
+    if (!teamList) return;
 
     try {
-        const response = await fetch(`${API_CONFIG.BASE_URL}/teams?league=${LEAGUES.TURKEY}&season=${new Date().getFullYear() - 1}`, {
-            method: "GET",
-            headers: {
-                "x-rapidapi-host": API_CONFIG.HOST,
-                "x-rapidapi-key": API_CONFIG.KEY
+        const currentYear = new Date().getFullYear();
+        const month = new Date().getMonth();
+        let season = month < 7 ? currentYear - 1 : currentYear;
+
+        const tryLoad = async (targetSeason) => {
+            const data = await fetchWithRetry(`/teams?league=${LEAGUES.TURKEY}&season=${targetSeason}`);
+            if (data && data.response && data.response.length > 0) {
+                renderSuperLigTeams(data.response);
+                return true;
             }
-        });
-        const data = await response.json();
-        if (data.response) {
-            renderSuperLigTeams(data.response);
+            return false;
+        };
+
+        let success = await tryLoad(season);
+        if (!success) success = await tryLoad(season - 1);
+        if (!success && season > 2023) success = await tryLoad(2024);
+
+        if (!success) {
+            teamList.innerHTML = '<div style="padding: 10px; color: var(--text-secondary); font-size: 11px;">Takım bulunamadı.</div>';
+            logDiag('Takım listesi boş döndü.', 'warn');
         }
     } catch (error) {
-        console.error('Teams Fetch Error:', error);
+        teamList.innerHTML = `<div style="padding: 10px; color: var(--accent-red); font-size: 11px;">Hata.</div>`;
     }
 }
 
 function renderSuperLigTeams(teams) {
     const list = document.getElementById('super-lig-teams');
     if (!list) return;
-
     list.innerHTML = '';
     teams.forEach(item => {
         const team = item.team;
         const div = document.createElement('div');
         div.className = 'league-item';
-        div.style.cursor = 'pointer';
         div.style.padding = '8px 12px';
-        div.style.fontSize = '13px';
+        div.style.cursor = 'pointer';
+        div.style.borderBottom = '1px solid var(--border-color)';
         div.innerHTML = `
-            <img src="${team.logo}" style="width: 14px; height: 14px; margin-right: 12px;">
-            <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${team.name}</span>
+            <img src="${team.logo}" style="width: 14px; height: 14px; margin-right: 12px; border-radius: 0;">
+            <span style="font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${team.name}</span>
         `;
         div.addEventListener('click', (e) => {
             e.stopPropagation();
             currentView = `team-${team.id}`;
-            fetchTeamFixtures(team.id);
+            initApp();
         });
         list.appendChild(div);
     });
@@ -382,24 +397,14 @@ async function fetchTeamFixtures(teamId, filter = 'upcoming') {
     renderLoadingState();
     try {
         const type = filter === 'upcoming' ? 'next=15' : 'last=15';
-        const response = await fetch(`${API_CONFIG.BASE_URL}/fixtures?team=${teamId}&${type}`, {
-            method: "GET",
-            headers: {
-                "x-rapidapi-host": API_CONFIG.HOST,
-                "x-rapidapi-key": API_CONFIG.KEY
-            }
-        });
-        const data = await response.json();
-        if (data.response) {
+        const data = await fetchWithRetry(`/fixtures?team=${teamId}&${type}`);
+        if (data && data.response) {
             renderMatches(data.response);
         }
-    } catch (error) {
-        console.error('Team Fixtures Fetch Error:', error);
-    }
+    } catch (error) { }
 }
 
 function setupEventListeners() {
-    // League Switching
     document.querySelectorAll('.league-toggle').forEach(item => {
         item.addEventListener('click', () => {
             currentView = parseInt(item.dataset.leagueId);
@@ -415,54 +420,19 @@ function setupEventListeners() {
         });
     }
 
-    // Search animation
-    const searchBar = document.querySelector('.search-bar');
-    const searchInput = searchBar?.querySelector('input');
-
-    if (searchInput) {
-        searchInput.addEventListener('focus', () => {
-            searchBar.style.boxShadow = '0 0 0 2px var(--accent-blue)';
-        });
-        searchInput.addEventListener('blur', () => {
-            searchBar.style.boxShadow = 'none';
-        });
-    }
-
-    // Modal Control
     const overlay = document.getElementById('match-details-overlay');
     const closeBtn = document.getElementById('close-details');
-
     document.querySelectorAll('.match-card').forEach(card => {
         card.addEventListener('click', () => {
             overlay.classList.add('active');
-            document.body.style.overflow = 'hidden'; // Prevent scroll
+            document.body.style.overflow = 'hidden';
         });
     });
-
     closeBtn?.addEventListener('click', () => {
         overlay.classList.remove('active');
         document.body.style.overflow = 'auto';
     });
-
-    // Close on backdrop click
     overlay?.addEventListener('click', (e) => {
         if (e.target === overlay) closeBtn.click();
     });
-
-    // Tab Switching
-    const tabs = document.querySelectorAll('.tab');
-    tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            tabs.forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-            updateTabContent(tab.dataset.tab);
-        });
-    });
-}
-
-function updateTabContent(tabName) {
-    const content = document.getElementById('details-content');
-    // For demo purposes, we'll just show/hide specific sections or update text
-    console.log(`Tab switched to: ${tabName}`);
-    // In a full app, this would fetch data or render different components
 }
