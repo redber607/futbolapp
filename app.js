@@ -14,12 +14,13 @@ const LEAGUES = {
     CHAMPIONS_LEAGUE: 2
 };
 
-let currentView = 'live'; // 'live' or league ID
+let currentView = 'live'; // 'live', league ID (num), or 'team-ID'
+let matchFilter = 'upcoming'; // 'upcoming' or 'finished'
 
 document.addEventListener('DOMContentLoaded', () => {
     initApp();
     setupEventListeners();
-    loadSuperLigTeams(); // Sayfa açılınca takımları getir
+    loadSuperLigTeams();
 });
 
 async function initApp() {
@@ -28,25 +29,31 @@ async function initApp() {
         let matchData;
         if (currentView === 'live') {
             matchData = await fetchLiveScores();
-        } else {
-            matchData = await fetchLeagueFixtures(currentView);
+        } else if (typeof currentView === 'number') {
+            matchData = await fetchLeagueFixtures(currentView, matchFilter);
             await loadLeagueStandings(currentView);
+        } else if (currentView.startsWith('team-')) {
+            const teamId = currentView.split('-')[1];
+            matchData = await fetchTeamFixtures(teamId, matchFilter);
         }
 
         if (matchData && matchData.length > 0) {
             renderMatches(matchData);
         } else if (currentView === 'live') {
             initSimulation();
+        } else {
+            renderEmptyState();
         }
     } else {
         initSimulation();
     }
 }
 
-async function fetchLeagueFixtures(leagueId) {
+async function fetchLeagueFixtures(leagueId, filter = 'upcoming') {
     try {
-        const year = new Date().getFullYear();
-        const response = await fetch(`${API_CONFIG.BASE_URL}/fixtures?league=${leagueId}&season=${year}&next=10`, {
+        const year = new Date().getFullYear() - 1; // 2024-2025 season
+        const type = filter === 'upcoming' ? 'next=15' : 'last=15';
+        const response = await fetch(`${API_CONFIG.BASE_URL}/fixtures?league=${leagueId}&season=${year}&${type}`, {
             method: "GET",
             headers: {
                 "x-rapidapi-host": API_CONFIG.HOST,
@@ -63,7 +70,7 @@ async function fetchLeagueFixtures(leagueId) {
 
 async function loadLeagueStandings(leagueId) {
     try {
-        const year = new Date().getFullYear();
+        const year = new Date().getFullYear() - 1;
         const response = await fetch(`${API_CONFIG.BASE_URL}/standings?league=${leagueId}&season=${year}`, {
             method: "GET",
             headers: {
@@ -87,16 +94,41 @@ function renderStandings(standings) {
     let html = `
         <div class="info-card standings-card">
             <h3 class="section-title">Puan Durumu</h3>
-            <table style="width: 100%; font-size: 12px; border-collapse: collapse; margin-top: 10px;">
-                <thead>
-                    <tr style="color: var(--text-secondary); text-align: left; border-bottom: 1px solid var(--border-color);">
-                        <th style="padding: 8px 4px;">#</th>
-                        <th style="padding: 8px 4px;">Takım</th>
-                        <th style="padding: 8px 4px; text-align: center;">O</th>
-                        <th style="padding: 8px 4px; text-align: center;">P</th>
-                    </tr>
-                </thead>
-                <tbody>
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; font-size: 11px; border-collapse: collapse; margin-top: 10px;">
+                    <thead>
+                        <tr style="color: var(--text-secondary); text-align: left; border-bottom: 1px solid var(--border-color);">
+                            <th style="padding: 6px 2px;">#</th>
+                            <th style="padding: 6px 2px;">Takım</th>
+                            <th style="padding: 6px 2px; text-align: center;">O</th>
+                            <th style="padding: 6px 2px; text-align: center;">Av</th>
+                            <th style="padding: 6px 2px; text-align: center;">P</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+    `;
+
+    standings.forEach(team => {
+        const isSelected = currentView === `team-${team.team.id}`;
+        html += `
+            <tr style="border-bottom: 1px solid var(--border-color); cursor: pointer; ${isSelected ? 'background: var(--bg-accent);' : ''}">
+                <td style="padding: 6px 2px;">${team.rank}</td>
+                <td style="padding: 6px 2px; display: flex; align-items: center; gap: 4px;">
+                    <img src="${team.team.logo}" style="width: 14px; height: 14px;">
+                    <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px;">${team.team.name}</span>
+                </td>
+                <td style="padding: 6px 2px; text-align: center;">${team.all.played}</td>
+                <td style="padding: 6px 2px; text-align: center;">${team.goalsDiff}</td>
+                <td style="padding: 6px 2px; text-align: center; font-weight: 700; color: var(--accent-blue);">${team.points}</td>
+            </tr>
+        `;
+    });
+
+    html += `
+                    </tbody>
+                </table>
+            </div>
+        </div>
     `;
 
     standings.slice(0, 10).forEach(team => {
@@ -166,10 +198,25 @@ async function fetchLiveScores() {
  */
 function renderMatches(fixtures) {
     const feed = document.querySelector('.match-feed');
-    // Clear existing hardcoded matches except title
-    const title = feed.querySelector('div:first-child');
     feed.innerHTML = '';
-    feed.appendChild(title);
+
+    // Render Filters (Upcoming / Finished)
+    if (currentView !== 'live') {
+        renderMatchFilter(feed);
+    } else {
+        const title = document.createElement('div');
+        title.style.display = 'flex';
+        title.style.justifyContent = 'space-between';
+        title.style.alignItems = 'center';
+        title.style.marginBottom = '8px';
+        title.innerHTML = `
+            <h2 style="font-size: 18px; font-weight: 700;">Canlı Maçlar</h2>
+            <div style="background: var(--bg-accent); padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; color: var(--accent-green); border: 1px solid var(--accent-green);">
+                ${fixtures.length} CANLI
+            </div>
+        `;
+        feed.appendChild(title);
+    }
 
     fixtures.forEach(item => {
         const card = document.createElement('div');
@@ -200,14 +247,58 @@ function renderMatches(fixtures) {
     setupEventListeners();
 }
 
+function renderMatchFilter(container) {
+    const filterDiv = document.createElement('div');
+    filterDiv.className = 'match-filter';
+    filterDiv.style.display = 'flex';
+    filterDiv.style.gap = '12px';
+    filterDiv.style.marginBottom = '16px';
+    filterDiv.style.padding = '4px';
+    filterDiv.style.background = 'var(--bg-secondary)';
+    filterDiv.style.borderRadius = '12px';
+    filterDiv.style.width = 'fit-content';
+
+    filterDiv.innerHTML = `
+        <button class="filter-btn ${matchFilter === 'upcoming' ? 'active' : ''}" data-filter="upcoming" style="padding: 8px 16px; border-radius: 8px; border: none; background: ${matchFilter === 'upcoming' ? 'var(--accent-blue)' : 'transparent'}; color: white; cursor: pointer; font-weight: 600; font-size: 13px;">Gelecek Program</button>
+        <button class="filter-btn ${matchFilter === 'finished' ? 'active' : ''}" data-filter="finished" style="padding: 8px 16px; border-radius: 8px; border: none; background: ${matchFilter === 'finished' ? 'var(--accent-blue)' : 'transparent'}; color: white; cursor: pointer; font-weight: 600; font-size: 13px;">Sonuçlar</button>
+    `;
+
+    filterDiv.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            matchFilter = btn.dataset.filter;
+            initApp();
+        });
+    });
+
+    container.appendChild(filterDiv);
+}
+
+function renderEmptyState() {
+    const feed = document.querySelector('.match-feed');
+    feed.innerHTML = '';
+
+    if (currentView !== 'live') renderMatchFilter(feed);
+
+    const empty = document.createElement('div');
+    empty.style.padding = '60px 40px';
+    empty.style.textAlign = 'center';
+    empty.style.color = 'var(--text-secondary)';
+    empty.innerHTML = `
+        <i data-lucide="calendar-x" style="width: 48px; height: 48px; margin-bottom: 16px; opacity: 0.5;"></i>
+        <p>Bu kategoride şu an için maç bulunamadı.</p>
+    `;
+    feed.appendChild(empty);
+    lucide.createIcons();
+}
+
 function renderLoadingState() {
     const feed = document.querySelector('.match-feed');
-    const loading = document.createElement('div');
-    loading.style.padding = '40px';
-    loading.style.textAlign = 'center';
-    loading.style.color = 'var(--text-secondary)';
-    loading.textContent = 'Canlı veriler yükleniyor...';
-    feed.appendChild(loading);
+    feed.innerHTML = `
+        <div style="padding: 80px; text-align: center; color: var(--text-secondary);">
+            <div class="live-indicator" style="margin: 0 auto 16px; width: 12px; height: 12px;"></div>
+            <p style="font-size: 14px;">Veriler yükleniyor...</p>
+        </div>
+    `;
 }
 
 /**
@@ -312,10 +403,11 @@ function renderSuperLigTeams(teams) {
     });
 }
 
-async function fetchTeamFixtures(teamId) {
+async function fetchTeamFixtures(teamId, filter = 'upcoming') {
     renderLoadingState();
     try {
-        const response = await fetch(`${API_CONFIG.BASE_URL}/fixtures?team=${teamId}&next=10`, {
+        const type = filter === 'upcoming' ? 'next=15' : 'last=15';
+        const response = await fetch(`${API_CONFIG.BASE_URL}/fixtures?team=${teamId}&${type}`, {
             method: "GET",
             headers: {
                 "x-rapidapi-host": API_CONFIG.HOST,
