@@ -31,6 +31,7 @@ async function initApp() {
  */
 async function fetchLiveScores() {
     try {
+        console.log('Fetching live scores...');
         const response = await fetch(`${API_CONFIG.BASE_URL}/fixtures?live=all`, {
             method: "GET",
             headers: {
@@ -38,10 +39,22 @@ async function fetchLiveScores() {
                 "x-rapidapi-key": API_CONFIG.KEY
             }
         });
+
+        if (!response.ok) throw new Error(`API Error: ${response.status}`);
+
         const data = await response.json();
-        return data.response; // Array of fixtures
+
+        if (!data.response || data.response.length === 0) {
+            console.warn('No live matches found from API. Falling back to simulation.');
+            initSimulation();
+            return null;
+        }
+
+        return data.response;
     } catch (error) {
-        console.error('API Fetch Error:', error);
+        console.error('API Fetch Error:', error.message);
+        console.log('Falling back to simulation mode...');
+        initSimulation();
         return null;
     }
 }
