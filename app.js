@@ -19,6 +19,7 @@ let currentView = 'live'; // 'live' or league ID
 document.addEventListener('DOMContentLoaded', () => {
     initApp();
     setupEventListeners();
+    loadSuperLigTeams(); // Sayfa açılınca takımları getir
 });
 
 async function initApp() {
@@ -262,20 +263,90 @@ function highlightScore(element) {
     }, 3000);
 }
 
+async function loadSuperLigTeams() {
+    if (!API_CONFIG.ENABLED || API_CONFIG.KEY === 'YOUR_RAPIDAPI_KEY') {
+        const teamList = document.getElementById('super-lig-teams');
+        if (teamList) teamList.innerHTML = '<div style="padding: 10px; color: var(--text-secondary); font-size: 11px;">Simülasyon Modu: Takımlar yüklenemedi.</div>';
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_CONFIG.BASE_URL}/teams?league=${LEAGUES.TURKEY}&season=${new Date().getFullYear() - 1}`, {
+            method: "GET",
+            headers: {
+                "x-rapidapi-host": API_CONFIG.HOST,
+                "x-rapidapi-key": API_CONFIG.KEY
+            }
+        });
+        const data = await response.json();
+        if (data.response) {
+            renderSuperLigTeams(data.response);
+        }
+    } catch (error) {
+        console.error('Teams Fetch Error:', error);
+    }
+}
+
+function renderSuperLigTeams(teams) {
+    const list = document.getElementById('super-lig-teams');
+    if (!list) return;
+
+    list.innerHTML = '';
+    teams.forEach(item => {
+        const team = item.team;
+        const div = document.createElement('div');
+        div.className = 'league-item';
+        div.style.cursor = 'pointer';
+        div.style.padding = '8px 12px';
+        div.style.fontSize = '13px';
+        div.innerHTML = `
+            <img src="${team.logo}" style="width: 14px; height: 14px; margin-right: 12px;">
+            <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${team.name}</span>
+        `;
+        div.addEventListener('click', (e) => {
+            e.stopPropagation();
+            currentView = `team-${team.id}`;
+            fetchTeamFixtures(team.id);
+        });
+        list.appendChild(div);
+    });
+}
+
+async function fetchTeamFixtures(teamId) {
+    renderLoadingState();
+    try {
+        const response = await fetch(`${API_CONFIG.BASE_URL}/fixtures?team=${teamId}&next=10`, {
+            method: "GET",
+            headers: {
+                "x-rapidapi-host": API_CONFIG.HOST,
+                "x-rapidapi-key": API_CONFIG.KEY
+            }
+        });
+        const data = await response.json();
+        if (data.response) {
+            renderMatches(data.response);
+        }
+    } catch (error) {
+        console.error('Team Fixtures Fetch Error:', error);
+    }
+}
+
 function setupEventListeners() {
     // League Switching
-    document.querySelectorAll('.league-item').forEach(item => {
+    document.querySelectorAll('.league-toggle').forEach(item => {
         item.addEventListener('click', () => {
-            const leagueName = item.querySelector('span').textContent;
-            if (leagueName === 'Süper Lig') currentView = LEAGUES.TURKEY;
-            else if (leagueName === 'Premier League') currentView = LEAGUES.PREMIER_LEAGUE;
-            else if (leagueName === 'La Liga') currentView = LEAGUES.LA_LIGA;
-            else if (leagueName === 'Serie A') currentView = LEAGUES.SERIE_A;
-            else if (leagueName === 'Popüler' || leagueName === 'Canlı') currentView = 'live';
-
+            currentView = parseInt(item.dataset.leagueId);
             initApp();
         });
     });
+
+    const liveBtn = document.querySelector('.league-item[style*="accent-green"]');
+    if (liveBtn) {
+        liveBtn.addEventListener('click', () => {
+            currentView = 'live';
+            initApp();
+        });
+    }
 
     // Search animation
     const searchBar = document.querySelector('.search-bar');
