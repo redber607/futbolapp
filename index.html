@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FutbolApp | Canlı Skorlar ve Maç Merkezi</title>
+    <meta name="description" content="SofaScore benzeri canlı skor takibi, maç istatistikleri ve spor verileri.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <nav class="top-nav">
+        <div class="logo">
+            <i data-lucide="trophy"></i>
+            <span>FutbolApp</span>
+        </div>
+
+        <div class="search-bar">
+            <i data-lucide="search" style="width: 18px; color: var(--text-secondary);"></i>
+            <input type="text" placeholder="Takım, lig veya oyuncu ara...">
+        </div>
+
+        <div class="user-actions" style="display: flex; gap: 16px;">
+            <button style="background: none; border: none; color: var(--text-primary); cursor: pointer;">
+                <i data-lucide="bell"></i>
+            </button>
+            <div
+                style="width: 32px; height: 32px; border-radius: 50%; background: var(--accent-blue); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; cursor: pointer;">
+                RG
+            </div>
+        </div>
+    </nav>
+
+    <div class="app-container">
+        <main class="content">
+            <!-- Sol Menü: Ligler -->
+            <aside class="sidebar-left">
+                <h3 class="section-title">Favori Ligler</h3>
+                <div class="leagues-list">
+                    <div class="league-item">
+                        <div class="league-logo" style="background: #E31221;"></div>
+                        <span>Süper Lig</span>
+                    </div>
+                    <div class="league-item">
+                        <div class="league-logo" style="background: #3D195B;"></div>
+                        <span>Premier League</span>
+                    </div>
+                    <div class="league-item">
+                        <div class="league-logo" style="background: #EE242C;"></div>
+                        <span>La Liga</span>
+                    </div>
+                    <div class="league-item">
+                        <div class="league-logo" style="background: #003366;"></div>
+                        <span>Serie A</span>
+                    </div>
+                </div>
+
+                <h3 class="section-title" style="margin-top: 32px;">Kategoriler</h3>
+                <div class="leagues-list">
+                    <div class="league-item"><i data-lucide="star" style="width: 16px;"></i> <span>Popüler</span></div>
+                    <div class="league-item"><i data-lucide="calendar" style="width: 16px;"></i> <span>Fikstür</span>
+                    </div>
+                    <div class="league-item"><i data-lucide="layout-grid" style="width: 16px;"></i> <span>Tüm
+                            Ligler</span></div>
+                </div>
+            </aside>
+
+            <!-- Orta Alan: Maç Akışı -->
+            <section class="match-feed">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <h2 style="font-size: 18px; font-weight: 700;">Canlı Maçlar</h2>
+                    <div
+                        style="background: var(--bg-accent); padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; color: var(--accent-green); border: 1px solid var(--accent-green);">
+                        4 CANLI
+                    </div>
+                </div>
+
+                <!-- Live Match Card -->
+                <div class="match-card" id="match-1">
+                    <div class="match-time live">
+                        <div class="live-indicator"></div>
+                        <span>74'</span>
+                    </div>
+                    <div class="match-teams">
+                        <div class="team">
+                            <div class="team-logo" style="background: #FDB913;"></div>
+                            <span>Galatasaray</span>
+                        </div>
+                        <div class="team">
+                            <div class="team-logo" style="background: #000000; border: 1px solid white;"></div>
+                            <span>Beşiktaş</span>
+                        </div>
+                    </div>
+                    <div class="match-score">
+                        <div class="score-row">2</div>
+                        <div class="score-row">1</div>
+                    </div>
+                </div>
+
+                <!-- Finished Match Card -->
+                <div class="match-card">
+                    <div class="match-time">
+                        <span>MS</span>
+                    </div>
+                    <div class="match-teams">
+                        <div class="team">
+                            <div class="team-logo" style="background: #003366;"></div>
+                            <span>Fenerbahçe</span>
+                        </div>
+                        <div class="team">
+                            <div class="team-logo" style="background: #7A003C;"></div>
+                            <span>Trabzonspor</span>
+                        </div>
+                    </div>
+                    <div class="match-score" style="color: var(--text-secondary);">
+                        <div class="score-row">3</div>
+                        <div class="score-row">3</div>
+                    </div>
+                </div>
+
+                <!-- Upcoming Match Card -->
+                <div class="match-card">
+                    <div class="match-time">
+                        <span>21:45</span>
+                    </div>
+                    <div class="match-teams">
+                        <div class="team">
+                            <div class="team-logo" style="background: #DA291C;"></div>
+                            <span>Liverpool</span>
+                        </div>
+                        <div class="team">
+                            <div class="team-logo" style="background: #003090;"></div>
+                            <span>Man City</span>
+                        </div>
+                    </div>
+                    <div class="match-score">
+                        <div class="score-row">-</div>
+                        <div class="score-row">-</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Sağ Panel: Detaylar / Puan Durumu -->
+            <aside class="sidebar-right">
+                <div class="info-card">
+                    <h3 class="section-title">Haftanın Oyuncusu</h3>
+                    <div style="display: flex; align-items: center; gap: 16px; margin-top: 12px;">
+                        <div
+                            style="width: 48px; height: 48px; border-radius: 8px; background: var(--bg-accent); display: flex; align-items: center; justify-content: center;">
+                            <i data-lucide="user"></i>
+                        </div>
+                        <div>
+                            <div style="font-weight: 700; font-size: 14px;">Victor Osimhen</div>
+                            <div style="font-size: 12px; color: var(--text-secondary);">Galatasaray</div>
+                        </div>
+                        <div
+                            style="margin-left: auto; background: var(--accent-green); color: white; padding: 2px 8px; border-radius: 4px; font-weight: 800; font-size: 14px;">
+                            9.2
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <h3 class="section-title">Günün Kuponu</h3>
+                    <div style="padding-top: 12px; font-size: 13px; color: var(--text-secondary);">
+                        Uzman yazarlarımızdan maç tahminleri yakında burada!
+                    </div>
+                </div>
+            </aside>
+        </main>
+    </div>
+
+    <div class="overlay" id="match-details-overlay">
+        <div class="details-modal">
+            <div class="details-header">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                    <div style="font-size: 14px; font-weight: 600; color: var(--text-secondary);">Süper Lig • Hafta 11
+                    </div>
+                    <button id="close-details"
+                        style="background: none; border: none; color: var(--text-secondary); cursor: pointer;">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                <!-- Mini Scoreboard in Header -->
+                <div style="display: flex; justify-content: center; align-items: center; gap: 40px;">
+                    <div style="text-align: center;">
+                        <div
+                            style="width: 64px; height: 64px; background: #FDB913; border-radius: 12px; margin: 0 auto 12px;">
+                        </div>
+                        <div style="font-weight: 700;">Galatasaray</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 48px; font-weight: 800; line-height: 1;">2 - 1</div>
+                        <div style="font-size: 14px; font-weight: 700; color: var(--accent-green); margin-top: 8px;">74'
+                        </div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div
+                            style="width: 64px; height: 64px; background: #000000; border-radius: 12px; margin: 0 auto 12px; border: 1px solid white;">
+                        </div>
+                        <div style="font-weight: 700;">Beşiktaş</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="details-tabs">
+                <div class="tab" data-tab="events">BİLGİ</div>
+                <div class="tab active" data-tab="lineups">KADROLAR</div>
+                <div class="tab" data-tab="stats">İSTATİSTİK</div>
+            </div>
+
+            <div class="details-body" id="details-content">
+                <!-- Lineups Tab Content (Default) -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px;">
+                    <div>
+                        <h4 class="section-title">Sahaya Diziliş</h4>
+                        <div class="pitch-container">
+                            <!-- Tactical Nodes Simulation -->
+                            <div class="player-node" style="bottom: 5%; left: 45%;">1</div>
+                            <div class="player-node" style="bottom: 20%; left: 10%;">4</div>
+                            <div class="player-node" style="bottom: 20%; left: 35%;">6</div>
+                            <div class="player-node" style="bottom: 20%; left: 60%;">25</div>
+                            <div class="player-node" style="bottom: 20%; left: 85%;">19</div>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="section-title">Maç İstatistikleri</h4>
+                        <div class="stats-row">
+                            <div class="stats-label"><span>Topla Oynama</span><span>54% - 46%</span></div>
+                            <div class="stats-bar-container">
+                                <div class="stats-bar home" style="width: 54%;"></div>
+                                <div class="stats-bar away" style="width: 46%;"></div>
+                            </div>
+                        </div>
+                        <div class="stats-row">
+                            <div class="stats-label"><span>Toplam Şut</span><span>12 - 8</span></div>
+                            <div class="stats-bar-container">
+                                <div class="stats-bar home" style="width: 60%;"></div>
+                                <div class="stats-bar away" style="width: 40%;"></div>
+                            </div>
+                        </div>
+                        <div class="stats-row">
+                            <div class="stats-label"><span>Korner</span><span>5 - 2</span></div>
+                            <div class="stats-bar-container">
+                                <div class="stats-bar home" style="width: 71%;"></div>
+                                <div class="stats-bar away" style="width: 29%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+
+</html>

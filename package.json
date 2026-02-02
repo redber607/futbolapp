@@ -1,0 +1,22 @@
+{
+  "name": "futbolapp",
+  "version": "1.0.0",
+  "description": "SofaScore-like premium football live score application.",
+  "main": "index.html",
+  "scripts": {
+    "start": "serve .",
+    "dev": "serve ."
+  },
+  "dependencies": {
+    "serve": "^14.2.1"
+  },
+  "keywords": [
+    "football",
+    "soccer",
+    "livescore",
+    "sofascore",
+    "sports"
+  ],
+  "author": "Antigravity",
+  "license": "MIT"
+}
