@@ -88,21 +88,21 @@ async function loadLeagueStandings(leagueId) {
 }
 
 function renderStandings(standings) {
-    const sidebarRight = document.querySelector('.sidebar-right');
-    if (!sidebarRight) return;
+    const container = document.querySelector('.standings-container');
+    if (!container) return;
 
     let html = `
-        <div class="info-card standings-card">
+        <div class="info-card standings-card" style="margin-top: 24px;">
             <h3 class="section-title">Puan Durumu</h3>
             <div style="overflow-x: auto;">
                 <table style="width: 100%; font-size: 11px; border-collapse: collapse; margin-top: 10px;">
                     <thead>
-                        <tr style="color: var(--text-secondary); text-align: left; border-bottom: 1px solid var(--border-color);">
-                            <th style="padding: 6px 2px;">#</th>
-                            <th style="padding: 6px 2px;">Takım</th>
-                            <th style="padding: 6px 2px; text-align: center;">O</th>
-                            <th style="padding: 6px 2px; text-align: center;">Av</th>
-                            <th style="padding: 6px 2px; text-align: center;">P</th>
+                        <tr style="color: var(--text-secondary); text-align: left; border-bottom: 2px solid var(--border-color);">
+                            <th style="padding: 10px 4px;">#</th>
+                            <th style="padding: 10px 4px;">Takım</th>
+                            <th style="padding: 10px 4px; text-align: center;">O</th>
+                            <th style="padding: 10px 4px; text-align: center;">Av</th>
+                            <th style="padding: 10px 4px; text-align: center;">P</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -111,15 +111,15 @@ function renderStandings(standings) {
     standings.forEach(team => {
         const isSelected = currentView === `team-${team.team.id}`;
         html += `
-            <tr style="border-bottom: 1px solid var(--border-color); cursor: pointer; ${isSelected ? 'background: var(--bg-accent);' : ''}">
-                <td style="padding: 6px 2px;">${team.rank}</td>
-                <td style="padding: 6px 2px; display: flex; align-items: center; gap: 4px;">
-                    <img src="${team.team.logo}" style="width: 14px; height: 14px;">
-                    <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px;">${team.team.name}</span>
+            <tr style="border-bottom: 1px solid var(--border-color); cursor: pointer; transition: 0.2s; ${isSelected ? 'background: rgba(0, 242, 255, 0.05); border-left: 2px solid var(--accent-blue);' : ''}">
+                <td style="padding: 10px 4px;">${team.rank}</td>
+                <td style="padding: 10px 4px; display: flex; align-items: center; gap: 8px;">
+                    <img src="${team.team.logo}" style="width: 16px; height: 16px; border-radius: 0;">
+                    <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px;">${team.team.name}</span>
                 </td>
-                <td style="padding: 6px 2px; text-align: center;">${team.all.played}</td>
-                <td style="padding: 6px 2px; text-align: center;">${team.goalsDiff}</td>
-                <td style="padding: 6px 2px; text-align: center; font-weight: 700; color: var(--accent-blue);">${team.points}</td>
+                <td style="padding: 10px 4px; text-align: center;">${team.all.played}</td>
+                <td style="padding: 10px 4px; text-align: center;">${team.goalsDiff}</td>
+                <td style="padding: 10px 4px; text-align: center; font-weight: 800; color: var(--accent-blue);">${team.points}</td>
             </tr>
         `;
     });
@@ -131,33 +131,7 @@ function renderStandings(standings) {
         </div>
     `;
 
-    standings.slice(0, 10).forEach(team => {
-        html += `
-            <tr style="border-bottom: 1px solid var(--border-color); cursor: pointer;">
-                <td style="padding: 8px 4px;">${team.rank}</td>
-                <td style="padding: 8px 4px; display: flex; align-items: center; gap: 8px;">
-                    <img src="${team.team.logo}" style="width: 16px; height: 16px;">
-                    <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px;">${team.team.name}</span>
-                </td>
-                <td style="padding: 8px 4px; text-align: center;">${team.all.played}</td>
-                <td style="padding: 8px 4px; text-align: center; font-weight: 700; color: var(--accent-blue);">${team.points}</td>
-            </tr>
-        `;
-    });
-
-    html += `
-                </tbody>
-            </table>
-        </div>
-    `;
-
-    // Replace the first info card or prepend
-    const existingStandings = sidebarRight.querySelector('.standings-card');
-    if (existingStandings) {
-        existingStandings.outerHTML = html;
-    } else {
-        sidebarRight.insertAdjacentHTML('afterbegin', html);
-    }
+    container.innerHTML = html;
 }
 
 /**
@@ -218,9 +192,10 @@ function renderMatches(fixtures) {
         feed.appendChild(title);
     }
 
-    fixtures.forEach(item => {
+    fixtures.forEach((item, index) => {
         const card = document.createElement('div');
-        card.className = 'match-card';
+        card.className = 'match-card reveal';
+        card.style.animationDelay = `${index * 0.05}s`;
         card.innerHTML = `
             <div class="match-time ${item.fixture.status.short === '1H' || item.fixture.status.short === '2H' ? 'live' : ''}">
                 ${item.fixture.status.short === 'LIVE' || item.fixture.status.elapsed ? `<div class="live-indicator"></div><span>${item.fixture.status.elapsed}'</span>` : `<span>${item.fixture.status.short}</span>`}
@@ -228,11 +203,11 @@ function renderMatches(fixtures) {
             <div class="match-teams">
                 <div class="team">
                     <img src="${item.teams.home.logo}" class="team-logo" alt="${item.teams.home.name}">
-                    <span>${item.teams.home.name}</span>
+                    <span style="${item.goals.home > item.goals.away ? 'font-weight: 800; color: var(--text-primary);' : 'color: var(--text-secondary);'}">${item.teams.home.name}</span>
                 </div>
                 <div class="team">
                     <img src="${item.teams.away.logo}" class="team-logo" alt="${item.teams.away.name}">
-                    <span>${item.teams.away.name}</span>
+                    <span style="${item.goals.away > item.goals.home ? 'font-weight: 800; color: var(--text-primary);' : 'color: var(--text-secondary);'}">${item.teams.away.name}</span>
                 </div>
             </div>
             <div class="match-score">
@@ -432,7 +407,7 @@ function setupEventListeners() {
         });
     });
 
-    const liveBtn = document.querySelector('.league-item[style*="accent-green"]');
+    const liveBtn = document.querySelector('.live-btn');
     if (liveBtn) {
         liveBtn.addEventListener('click', () => {
             currentView = 'live';
